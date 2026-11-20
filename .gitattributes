@@ -1,0 +1,7 @@
+# El repositorio guarda LF; en Windows se trabaja con CRLF.
+# Reglas explicitas para evitar avisos de conversion al hacer commit.
+*.java text eol=crlf
+*.xml text eol=crlf
+*.properties text eol=crlf
+*.md text eol=crlf
+*.sql text eol=crlf

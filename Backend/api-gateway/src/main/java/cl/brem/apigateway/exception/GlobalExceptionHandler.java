@@ -9,7 +9,6 @@ import org.springframework.web.client.RestClientException;
 
 import java.net.SocketTimeoutException;
 import java.net.http.HttpTimeoutException;
-import java.time.LocalDateTime;
 import java.util.concurrent.TimeoutException;
 
 @Slf4j
@@ -51,7 +50,6 @@ public class GlobalExceptionHandler {
 				.status(estado.value())
 				.error(estado.getReasonPhrase())
 				.mensaje(mensaje)
-				.timestamp(LocalDateTime.now().toString())
 				.build();
 		return ResponseEntity.status(estado).body(cuerpo);
 	}

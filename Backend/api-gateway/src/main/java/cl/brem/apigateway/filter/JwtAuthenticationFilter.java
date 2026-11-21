@@ -23,7 +23,6 @@ import tools.jackson.databind.ObjectMapper;
 import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -154,7 +153,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 				.status(estado.value())
 				.error("No autorizado")
 				.mensaje(mensaje)
-				.timestamp(LocalDateTime.now().toString())
 				.build();
 
 		response.setStatus(estado.value());

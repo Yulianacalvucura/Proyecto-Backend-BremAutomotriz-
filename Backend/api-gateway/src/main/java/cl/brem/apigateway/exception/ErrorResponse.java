@@ -19,6 +19,4 @@ public class ErrorResponse {
 
 	private String mensaje;
 
-	private String timestamp;
-
 }

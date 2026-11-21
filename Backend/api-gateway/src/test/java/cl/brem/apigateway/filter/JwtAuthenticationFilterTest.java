@@ -281,7 +281,7 @@ class JwtAuthenticationFilterTest {
 		assertTrue(contenido(respuesta).contains("\"status\":401"));
 		assertTrue(contenido(respuesta).contains("\"error\":\"No autorizado\""));
 		assertTrue(contenido(respuesta).contains("\"mensaje\":\"" + mensaje + "\""));
-		assertTrue(contenido(respuesta).contains("\"timestamp\":"));
+		assertFalse(contenido(respuesta).contains("\"timestamp\""));
 	}
 
 }

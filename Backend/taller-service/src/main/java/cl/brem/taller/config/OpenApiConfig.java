@@ -17,7 +17,7 @@ public class OpenApiConfig {
 				.info(new Info()
 						.title("API BREM - Servicio de Taller")
 						.version("1.0")
-						.description("Gestión de clientes y vehículos"))
+						.description("Gestión de clientes, vehículos y órdenes de trabajo"))
 				.servers(List.of(
 						new Server().url("http://localhost:9090").description("Gateway")));
 	}

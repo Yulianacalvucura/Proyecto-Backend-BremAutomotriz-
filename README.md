@@ -1,58 +1,75 @@
-# Proyecto-Backend-BremAutomotriz-
+# Brem Automotriz - Backend
 
-Backend de Brem Automotriz: servicios Spring Boot (Java 21) sobre una base de datos **MySQL 8 compartida**.
+Backend de Brem Automotriz con **Spring Boot 4.2.0 / Java 21** y una única base de datos **MySQL 8 compartida** (`brem_automotriz`).
 
-## Estructura
+El esquema lo crea exclusivamente el script SQL ejecutado a mano: no hay Flyway, Liquibase ni DDL de Hibernate (`spring.jpa.hibernate.ddl-auto=none`).
 
-| Módulo | Base de datos |
+## Servicios
+
+| Servicio | Puerto | Base de datos / responsabilidad |
+| --- | --- | --- |
+| `Backend/auth-usuarios-service` | **8091** | Solo la tabla `usuarios`. Genera el JWT. |
+| `Backend/taller-service` | **8081** | `clientes`, `vehiculos`, `ordenes_trabajo`, `lineas_ot`, `evidencias_ot`, `historial_estados` y la vista `vista_ordenes`. |
+| `Backend/api-gateway` | **9090** | Gateway MVC (servlet, no WebFlux). En fases posteriores validará el JWT y enviará los headers `X-User-*`. No usa base de datos. |
+
+Rutas del gateway (`spring.cloud.gateway.server.webmvc.*`):
+
+- `/auth/**` → `http://localhost:8091`
+- `/clientes/**`, `/vehiculos/**`, `/ordenes/**` → `http://localhost:8081`
+- Documentación: `/auth/swagger-ui.html`, `/auth/v3/api-docs`, `/taller/swagger-ui.html`, `/taller/v3/api-docs`
+
+## Variables de entorno
+
+Ninguna contraseña ni secreto real se guarda en el repositorio: todo se lee de variables de entorno.
+
+| Variable | Uso |
 | --- | --- |
-| `Backend/api-gateway` | No usa BD |
-| `Backend/auth-usuarios-service` | `usuarios` |
-| `Backend/taller-service` | `clientes`, `vehiculos`, `ordenes_trabajo`, `lineas_ot`, `evidencias_ot`, `historial_estados`, `vista_ordenes` |
+| `DB_USER` | Usuario de MySQL. Distinto por servicio: `brem_usuarios_svc` en auth, `brem_taller_svc` en taller. |
+| `DB_PASSWORD` | Contraseña de ese usuario. Distinta por servicio: la que imprimió MySQL para cada cuenta. No aplica al gateway (no usa BD). |
+| `JWT_SECRET` | Secreto para firmar/validar JWT. **El mismo valor en api-gateway y auth-usuarios-service**, con **mínimo 32 caracteres**. No se usa en taller-service. |
 
-## Base de datos
-
-El esquema, los usuarios de MySQL y los datos de prueba están en [`database/mysql/brem_automotriz.sql`](database/mysql/brem_automotriz.sql).
-
-Es un **script de inicialización**: lo ejecuta una vez un administrador y la aplicación no gestiona el esquema.
-
-Requisito: MySQL **8.0.18 o superior** (usa `CHECK`, `REGEXP_LIKE` e `IDENTIFIED BY RANDOM PASSWORD`).
+Ejemplo (PowerShell, sesión de desarrollo):
 
 ```powershell
-mysql -u root -p < database\mysql\brem_automotriz.sql
+# auth-usuarios-service
+$env:DB_USER = "brem_usuarios_svc"
+$env:DB_PASSWORD = "<contraseña entregada por MySQL para brem_usuarios_svc>"
+$env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
+
+# taller-service (en otra terminal, con la contraseña de su propia cuenta)
+$env:DB_USER = "brem_taller_svc"
+$env:DB_PASSWORD = "<contraseña entregada por db/usuario_taller.sql>"
+
+# api-gateway (sin BD; el MISMO JWT_SECRET que auth)
+$env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
 ```
 
-El script crea la base `brem_automotriz`, las tablas, la vista `vista_ordenes`, tres cuentas con mínimo privilegio y datos de prueba. MySQL muestra al ejecutarlo las contraseñas aleatorias generadas para esas cuentas: guárdalas en tu gestor de secretos. **No las subas al repositorio.**
+## Orden para levantar el proyecto
 
-Decisiones tomadas:
+1. Ejecutar el script del esquema con un usuario administrador (root):
 
-- **Sin Flyway**: al compartir una sola BD, cada servicio tendría su propia tabla de historial de migraciones y se pisarían. El script SQL es la única fuente del esquema.
-- **Sin DDL de Hibernate** (`spring.jpa.hibernate.ddl-auto=none`): la app nunca altera un esquema compartido.
-- Las contraseñas de los usuarios de prueba se guardan como hash BCrypt, nunca en texto plano.
+   ```powershell
+   mysql -u root -p < database\mysql\brem_automotriz.sql
+   ```
 
-## Configuración de los servicios
+   Ese script crea la base, las tablas, la vista `vista_ordenes` y la cuenta `brem_usuarios_svc` (SELECT/INSERT/UPDATE sobre `usuarios`). MySQL imprime su contraseña aleatoria una sola vez: guárdala.
 
-La URL de MySQL se arma con:
+2. Ejecutar el script de la cuenta de taller:
 
-| Variable | Valor por defecto |
-| --- | --- |
-| `BREM_DB_HOST` | `localhost` |
-| `BREM_DB_PORT` | `3306` |
-| `BREM_DB_NAME` | `brem_automotriz` |
+   ```powershell
+   mysql -u root -p < db\usuario_taller.sql
+   ```
 
-Las credenciales se leen de las variables estándar de Spring `SPRING_DATASOURCE_USERNAME` y `SPRING_DATASOURCE_PASSWORD`. No hay credenciales escritas en el repositorio ni valores por defecto para la contraseña.
+   Crea `brem_taller_svc` con `IDENTIFIED BY RANDOM PASSWORD` y permisos mínimos. Guarda de inmediato la contraseña que imprima MySQL en `DB_PASSWORD` de taller-service.
 
-Ejemplo para `auth-usuarios-service` (PowerShell):
+3. Levantar los servicios en este orden: **auth-usuarios-service (8091)** → **taller-service (8081)** → **api-gateway (9090)**.
 
-```powershell
-$env:SPRING_DATASOURCE_USERNAME = "brem_usuarios_svc"
-$env:SPRING_DATASOURCE_PASSWORD = "<contraseña entregada por MySQL>"
-Set-Location Backend\auth-usuarios-service
-.\mvnw spring-boot:run
-```
+   ```powershell
+   # desde cada carpeta, con Maven en el PATH
+   mvn spring-boot:run
+   ```
 
-Si el servidor usa SSL o se conecta desde otro host, sobrescribe la URL completa con `SPRING_DATASOURCE_URL` en lugar de las variables `BREM_DB_*`.
+## Notas
 
-## Pendiente de la siguiente iteración
-
-El script define cuentas separadas para clientes y órdenes (`brem_clientes_svc` y `brem_ordenes_svc`), pero hoy `taller-service` cubre ambos dominios con una sola conexión. Hasta separar ese servicio, configura `SPRING_DATASOURCE_USERNAME` con una cuenta que tenga ambos conjuntos de permisos (o ajusta los `GRANT` del script).
+- Las órdenes de trabajo se anulan, no se borran: `brem_taller_svc` no tiene `DELETE` sobre `clientes`, `vehiculos` ni `ordenes_trabajo`.
+- No se conservan configuraciones de Testcontainers ni tests `@SpringBootTest`: se reemplazarán por tests unitarios con Mockito en fases siguientes.

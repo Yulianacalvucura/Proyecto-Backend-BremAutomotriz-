@@ -16,6 +16,12 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+	@ExceptionHandler(AutenticacionRequeridaException.class)
+	public ResponseEntity<ErrorResponse> manejarAutenticacionRequerida(AutenticacionRequeridaException ex,
+			HttpServletRequest request) {
+		return construir(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
+	}
+
 	@ExceptionHandler(ResourceNotFoundException.class)
 	public ResponseEntity<ErrorResponse> manejarResourceNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
 		return construir(HttpStatus.NOT_FOUND, ex.getMessage(), request);

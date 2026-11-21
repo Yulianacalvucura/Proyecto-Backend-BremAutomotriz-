@@ -19,6 +19,8 @@ public class SecurityConfig {
 
 	private static final String[] RUTAS_VEHICULOS = {"/vehiculos", "/vehiculos/**"};
 
+	private static final String[] RUTAS_ORDENES = {"/ordenes", "/ordenes/**"};
+
 	@Bean
 	public RestAuthenticationEntryPoint restAuthenticationEntryPoint(ObjectMapper objectMapper) {
 		return new RestAuthenticationEntryPoint(objectMapper);
@@ -57,6 +59,11 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, RUTAS_VEHICULOS).hasAnyAuthority("ADMIN", "JEFE")
 						.requestMatchers(HttpMethod.POST, RUTAS_VEHICULOS).hasAnyAuthority("ADMIN", "JEFE")
 						.requestMatchers(HttpMethod.PUT, RUTAS_VEHICULOS).hasAnyAuthority("ADMIN", "JEFE")
+						.requestMatchers(HttpMethod.GET, RUTAS_ORDENES).hasAnyAuthority("ADMIN", "JEFE")
+						.requestMatchers(HttpMethod.POST, RUTAS_ORDENES).hasAnyAuthority("ADMIN", "JEFE")
+						.requestMatchers(HttpMethod.PUT, RUTAS_ORDENES).hasAnyAuthority("ADMIN", "JEFE")
+						.requestMatchers(HttpMethod.PATCH, RUTAS_ORDENES).hasAnyAuthority("ADMIN", "JEFE")
+						.requestMatchers(HttpMethod.DELETE, RUTAS_ORDENES).hasAnyAuthority("ADMIN", "JEFE")
 						.anyRequest().authenticated())
 				.exceptionHandling(excepciones -> excepciones
 						.authenticationEntryPoint(restAuthenticationEntryPoint)

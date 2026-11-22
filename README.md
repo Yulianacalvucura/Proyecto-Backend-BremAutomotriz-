@@ -2,6 +2,8 @@
 
 Backend de Brem Automotriz con **Spring Boot 4.2.0 / Java 21** y una única base de datos **PostgreSQL 16 compartida** (`brem_automotriz`).
 
+> Hay dos formas de ejecutar el proyecto: **local** (MySQL + Maven) y **despliegue en AWS** (Docker Compose + PostgreSQL). Ver la sección "Despliegue en AWS (EC2)".
+
 El esquema lo crea exclusivamente el script SQL ejecutado a mano: no hay Flyway, Liquibase ni DDL de Hibernate (`spring.jpa.hibernate.ddl-auto=none`).
 
 ## Servicios
@@ -18,7 +20,7 @@ Rutas del gateway (`spring.cloud.gateway.server.webmvc.*`):
 - `/clientes/**`, `/vehiculos/**`, `/ordenes/**` → `http://localhost:8081`
 - Documentación: ver la sección **Documentación (Swagger)** más abajo.
 
-## Variables de entorno
+## Variables de entorno (ejecución local)
 
 Ninguna contraseña ni secreto real se guarda en el repositorio: todo se lee de variables de entorno.
 
@@ -50,7 +52,7 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
 # $env:DB_URL = "jdbc:postgresql://localhost:5432/brem_automotriz"
 ```
 
-## Orden para levantar el proyecto
+## Orden para levantar el proyecto (ejecución local)
 
 1. Crear la base de datos con un usuario administrador (`postgres`):
 
@@ -80,6 +82,106 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
    # ejecutado dentro de cada carpeta Backend/<módulo>
    .\mvnw.cmd spring-boot:run
    ```
+
+## Despliegue en AWS (EC2)
+
+El backend corre en una instancia EC2 con Docker Compose. Se levantan cuatro contenedores: `brem-gateway`, `brem-auth`, `brem-taller` y `brem-db` (PostgreSQL 16).
+
+```text
+Internet → :9090 (API Gateway) → auth (8091) / taller (8081) → PostgreSQL (5432)
+```
+
+Solo el puerto `9090` se expone a internet; `auth`, `taller` y la base de datos quedan dentro de la red de Docker.
+
+### Datos del despliegue
+
+| Dato | Valor |
+| --- | --- |
+| Región | `us-east-1` (Norte de Virginia) |
+| Instancia | `Brem-Automotriz` (`t3.medium`, Ubuntu 24.04) |
+| IP elástica | `52.6.72.225` |
+| URL pública | `http://52.6.72.225:9090` |
+| Swagger | `http://52.6.72.225:9090/swagger-ui.html` |
+
+### Pasos para desplegar
+
+1. Crear la instancia EC2 (Ubuntu 24.04) y asociarle una IP elástica (EC2 → Direcciones IP elásticas → Asociar).
+
+2. Abrir puertos en el Security Group: **22** (SSH) y **9090** (gateway). No abrir `5432`, `8081` ni `8091`.
+
+3. Conectarse por SSH:
+
+```bash
+ssh -i "bremkey.pem" ubuntu@52.6.72.225
+```
+
+4. Instalar Docker y Git:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io docker-compose-v2 git
+sudo usermod -aG docker $USER && newgrp docker
+```
+
+5. Clonar el repositorio:
+
+```bash
+git clone https://github.com/Yulianacalvucura/Proyecto-Backend-BremAutomotriz-.git
+cd Proyecto-Backend-BremAutomotriz-
+git checkout main
+```
+
+6. Crear el archivo `.env` (no se sube a GitHub; las claves se generan al azar):
+
+```bash
+cat > .env <<EOF
+POSTGRES_PASSWORD=$(openssl rand -hex 16)
+DB_PASSWORD_USUARIOS=$(openssl rand -hex 16)
+DB_PASSWORD_TALLER=$(openssl rand -hex 16)
+JWT_SECRET=$(openssl rand -hex 32)
+APP_PUBLIC_URL=http://52.6.72.225:9090
+CORS_ORIGINS=http://localhost:*,http://52.6.72.225:*
+EOF
+```
+
+7. Levantar los servicios:
+
+```bash
+docker compose up -d --build
+docker ps
+```
+
+### Variables de entorno (despliegue en AWS)
+
+| Variable | Uso |
+| --- | --- |
+| `POSTGRES_PASSWORD` | Contraseña del administrador de PostgreSQL. |
+| `DB_PASSWORD_USUARIOS` | Contraseña de la base del servicio auth. |
+| `DB_PASSWORD_TALLER` | Contraseña de la base del servicio taller. |
+| `JWT_SECRET` | Clave para firmar los tokens (mínimo 32 caracteres). |
+| `APP_PUBLIC_URL` | URL pública que aparece en Swagger. |
+| `CORS_ORIGINS` | Orígenes permitidos para el navegador, separados por coma. |
+
+La IP no está escrita en el código: se lee desde estas variables, por eso se cambia editando solo el `.env`.
+
+### Verificar que funciona
+
+1. Abrir `http://52.6.72.225:9090/swagger-ui.html`.
+2. Hacer `POST /auth/login` con un usuario de prueba (los del README, sección **Usuarios de prueba y datos de ejemplo**) y comprobar que responde `200` con un token.
+3. Enviar ese token en el header `Authorization: Bearer <token>` para consultar `GET /clientes`.
+
+### Actualizar el despliegue
+
+```bash
+cd Proyecto-Backend-BremAutomotriz-
+git pull
+docker compose up -d --build
+```
+
+### Notas
+
+- La IP elástica se mantiene aunque se apague y encienda la instancia.
+- En AWS Academy el laboratorio se apaga solo. Al reiniciarlo, revisar con `docker ps` que los contenedores sigan arriba (si no, `docker compose up -d`).
 
 ## Endpoints
 

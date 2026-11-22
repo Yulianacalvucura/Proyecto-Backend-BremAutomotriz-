@@ -8,9 +8,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * Resultado del buscador, leído desde la vista vista_ordenes.
- */
 @Getter
 @Setter
 @NoArgsConstructor

@@ -1,12 +1,3 @@
--- =====================================================================
--- BREM AUTOMOTRIZ - Cuenta de servicio para taller-service
---
--- IMPORTANTE: IDENTIFIED BY RANDOM PASSWORD hace que MySQL muestre la
--- contrasena generada UNA SOLA VEZ al ejecutar este script. Guardala de
--- inmediato en la variable de entorno DB_PASSWORD de taller-service
--- (no hay forma de recuperarla despues; habria que recrear el usuario).
--- =====================================================================
-
 USE brem_automotriz;
 
 CREATE USER IF NOT EXISTS 'brem_taller_svc'@'localhost' IDENTIFIED BY RANDOM PASSWORD;

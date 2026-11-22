@@ -19,7 +19,6 @@ public class CambioEstadoRequest {
 	@NotNull
 	private EstadoOt estado;
 
-	/** Obligatoria cuando el estado destino es ENTREGADO. */
 	@Size(max = 500)
 	private String observacionEntrega;
 

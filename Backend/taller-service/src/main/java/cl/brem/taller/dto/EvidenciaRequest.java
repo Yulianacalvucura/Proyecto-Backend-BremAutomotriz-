@@ -16,12 +16,9 @@ import lombok.Setter;
 @Builder
 public class EvidenciaRequest {
 
-	/** Solo se guarda la ruta o URL; el archivo no viaja en la petición. */
 	@NotBlank
 	@Size(max = 255)
 	private String ruta;
-
-	/** Opcional: si no viene se usa VEHICULO. */
 	private TipoEvidencia tipo;
 
 }

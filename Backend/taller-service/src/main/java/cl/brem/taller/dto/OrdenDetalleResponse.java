@@ -8,9 +8,7 @@ import lombok.Setter;
 
 import java.util.List;
 
-/**
- * Detalle completo de una OT: cabecera, líneas, evidencias e historial.
- */
+
 @Getter
 @Setter
 @NoArgsConstructor

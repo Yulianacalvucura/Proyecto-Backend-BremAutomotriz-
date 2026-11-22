@@ -9,7 +9,7 @@ services:
       POSTGRES_DB: brem_automotriz
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      # El entrypoint usa estos nombres al ejecutar 02-roles.sh.
+    
       USUARIOS_DB_PASSWORD: ${DB_PASSWORD_USUARIOS}
       TALLER_DB_PASSWORD: ${DB_PASSWORD_TALLER}
     volumes:

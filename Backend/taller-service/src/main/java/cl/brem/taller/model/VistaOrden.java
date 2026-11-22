@@ -13,9 +13,6 @@ import org.hibernate.annotations.Immutable;
 
 import java.time.LocalDateTime;
 
-/**
- * Proyección de la vista vista_ordenes. Es de SOLO LECTURA: nunca se escribe.
- */
 @Entity
 @Immutable
 @Table(name = "vista_ordenes")

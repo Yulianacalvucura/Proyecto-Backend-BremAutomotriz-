@@ -35,6 +35,8 @@ services:
       DB_USER: brem_usuarios_svc
       DB_PASSWORD: ${DB_PASSWORD_USUARIOS}
       JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:9090}
 
   taller:
     build:
@@ -48,6 +50,8 @@ services:
       DB_URL: jdbc:postgresql://db:5432/brem_automotriz
       DB_USER: brem_taller_svc
       DB_PASSWORD: ${DB_PASSWORD_TALLER}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:9090}
 
   gateway:
     build:
@@ -63,6 +67,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       AUTH_SERVICE_URL: http://auth:8091
       TALLER_SERVICE_URL: http://taller:8081
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
     ports:
       - "9090:9090"
 

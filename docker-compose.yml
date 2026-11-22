@@ -1,0 +1,75 @@
+name: brem-automotriz
+
+services:
+  db:
+    image: postgres:16
+    container_name: brem-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: brem_automotriz
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    
+      USUARIOS_DB_PASSWORD: ${DB_PASSWORD_USUARIOS}
+      TALLER_DB_PASSWORD: ${DB_PASSWORD_TALLER}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/postgres/brem_automotriz.sql:/docker-entrypoint-initdb.d/01-esquema.sql:ro
+      - ./db/postgres/02-roles.sh:/docker-entrypoint-initdb.d/02-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d brem_automotriz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth:
+    build:
+      context: ./Backend/auth-usuarios-service
+    container_name: brem-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/brem_automotriz
+      DB_USER: brem_usuarios_svc
+      DB_PASSWORD: ${DB_PASSWORD_USUARIOS}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:9090}
+
+  taller:
+    build:
+      context: ./Backend/taller-service
+    container_name: brem-taller
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/brem_automotriz
+      DB_USER: brem_taller_svc
+      DB_PASSWORD: ${DB_PASSWORD_TALLER}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:9090}
+
+  gateway:
+    build:
+      context: ./Backend/api-gateway
+    container_name: brem-gateway
+    restart: unless-stopped
+    depends_on:
+      auth:
+        condition: service_started
+      taller:
+        condition: service_started
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      AUTH_SERVICE_URL: http://auth:8091
+      TALLER_SERVICE_URL: http://taller:8081
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+    ports:
+      - "9090:9090"
+
+volumes:
+  pgdata:

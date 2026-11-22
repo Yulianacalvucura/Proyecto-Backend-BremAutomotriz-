@@ -32,8 +32,6 @@ public class LineaRequest {
 	@NotNull
 	@Positive
 	private Integer costo;
-
-	/** Opcional: si no viene se aplica el factor por defecto según el tipo. */
 	@DecimalMin("1.00")
 	@Digits(integer = 1, fraction = 2)
 	private BigDecimal factor;

@@ -7,10 +7,6 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
-/**
- * Repositorio de SOLO LECTURA de la vista vista_ordenes, usado únicamente
- * por el buscador de órdenes (patente, cliente o número de OT).
- */
 public interface VistaOrdenRepository extends JpaRepository<VistaOrden, Long> {
 
 	@Query("select v from VistaOrden v "

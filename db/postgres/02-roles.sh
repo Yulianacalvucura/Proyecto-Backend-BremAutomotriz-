@@ -1,11 +1,3 @@
-#!/bin/bash
-# =====================================================================
-# BREM AUTOMOTRIZ - Roles PostgreSQL para Docker (minimo privilegio)
-# Equivalente a db/postgres/usuarios_servicio.sql, pero las contrasenas
-# se leen de variables de entorno: no hay secretos escritos en este repo.
-# Lo ejecuta el entrypoint de postgres:16 desde /docker-entrypoint-initdb.d,
-# despues de 01-esquema.sql y solo cuando el volumen se inicializa.
-# =====================================================================
 set -euo pipefail
 
 : "${USUARIOS_DB_PASSWORD:?Falta USUARIOS_DB_PASSWORD en el entorno}"

@@ -6,10 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/**
- * Vehículo junto con los datos del cliente, usado por la apertura de una OT
- * a partir de la patente.
- */
 @Getter
 @Setter
 @NoArgsConstructor

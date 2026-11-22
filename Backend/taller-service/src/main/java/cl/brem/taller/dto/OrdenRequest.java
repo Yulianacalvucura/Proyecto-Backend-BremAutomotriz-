@@ -37,7 +37,6 @@ public class OrdenRequest {
 	@Size(max = 500)
 	private String observacionIngreso;
 
-	/** Opcional: si no viene se usa 19.00. */
 	@DecimalMin("0.00")
 	@DecimalMax("100.00")
 	@Digits(integer = 3, fraction = 2)

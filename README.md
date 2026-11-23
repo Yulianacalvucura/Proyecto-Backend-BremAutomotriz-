@@ -1,24 +1,54 @@
 # Brem Automotriz - Backend
 
+**Proyecto:** Brem Automotriz, gestión de órdenes de trabajo para un taller automotriz de Maipú.
+
+**Integrantes:** Yuliana Calvucura y Catalina Salinas.
+
+**Asignatura:** DSY1105 Desarrollo de Aplicaciones Móviles, sección DESARROLLO DE APLICACIONES MOVILES_012D (Duoc UC). Avance final de la Experiencia 3, preparación del Examen Final Transversal (EFT).
+
+**Repositorios:**
+
+- Backend (este repositorio): https://github.com/Yulianacalvucura/Proyecto-Backend-BremAutomotriz-
+- App Android: https://github.com/CataSalinas/Proyecto-BremAutomotriz-
+
+Este backend sirve a la app Android de Brem Automotriz. La problemática se resume a continuación.
+
+## Contexto y problemática
+
+Brem Automotriz es un taller automotriz de Maipú que se gestiona con documentación física y planillas Excel. Funciona con solo dos computadores, a los que únicamente ingresan los socios fundadores. El jefe de taller, que se hace cargo del taller por las mañanas, no tiene acceso y debe anotar todo en una pizarra, por lo que se pierde información importante.
+
+Problemas identificados:
+
+- **Registros incompletos:** los datos de ingreso y retiro quedan con faltantes y es difícil buscar historiales.
+- **Sin respaldo visual:** no hay evidencia del estado inicial del vehículo, lo que genera disputas por rayas o abolladuras previas.
+- **Cobro manual:** los montos netos, IVA y totales se calculan a mano, con riesgo de errores.
+
+La aplicación permite al jefe de taller y a los socios gestionar las órdenes de trabajo desde el celular, con búsqueda de historiales, registro de evidencias y montos calculados por el servidor.
+
 Backend de Brem Automotriz con **Spring Boot 4.2.0 / Java 21** y una única base de datos **PostgreSQL 16 compartida** (`brem_automotriz`).
 
-> Hay dos formas de ejecutar el proyecto: **local** (MySQL + Maven) y **despliegue en AWS** (Docker Compose + PostgreSQL). Ver la sección "Despliegue en AWS (EC2)".
+> Hay dos formas de ejecutar el proyecto: **local** (PostgreSQL 16 + Maven) y **despliegue en AWS** (Docker Compose + PostgreSQL 16). Ver la sección "Despliegue en AWS (EC2)".
 
-El esquema lo crea exclusivamente el script SQL ejecutado a mano: no hay Flyway, Liquibase ni DDL de Hibernate (`spring.jpa.hibernate.ddl-auto=none`).
+El esquema lo crea el script `database/postgres/brem_automotriz.sql` (ejecutado a mano en local y montado en `/docker-entrypoint-initdb.d` en Docker); no hay Flyway, Liquibase ni DDL de Hibernate (`spring.jpa.hibernate.ddl-auto=none`).
 
 ## Servicios
 
-| Servicio | Puerto | Base de datos / responsabilidad |
-| --- | --- | --- |
-| `Backend/auth-usuarios-service` | **8091** | Solo la tabla `usuarios`. Genera el JWT. |
-| `Backend/taller-service` | **8081** | `clientes`, `vehiculos`, `ordenes_trabajo`, `lineas_ot`, `evidencias_ot`, `historial_estados` y la vista `vista_ordenes`. |
-| `Backend/api-gateway` | **9090** | Gateway MVC (servlet, no WebFlux). Valida el JWT e inyecta los headers `X-User-*`. No usa base de datos. |
+| Servicio | Puerto | Contenedor Docker | Base de datos / responsabilidad |
+| --- | --- | --- | --- |
+| `Backend/auth-usuarios-service` | **8091** | `brem-auth` | Solo la tabla `usuarios`. Genera el JWT. |
+| `Backend/taller-service` | **8081** | `brem-taller` | `clientes`, `vehiculos`, `ordenes_trabajo`, `lineas_ot`, `evidencias_ot`, `historial_estados` y la vista `vista_ordenes`. |
+| `Backend/api-gateway` | **9090** | `brem-gateway` | Gateway MVC (servlet, no WebFlux). Valida el JWT e inyecta los headers `X-User-*`. No usa base de datos. |
+| `db` (PostgreSQL 16) | 5432 (solo red interna) | `brem-db` | Base de datos `brem_automotriz`. |
 
-Rutas del gateway (`spring.cloud.gateway.server.webmvc.*`):
+Rutas del gateway (`spring.cloud.gateway.server.webmvc.*`), por orden de precedencia:
 
+- `/auth/swagger-ui.html`, `/auth/swagger-ui/**`, `/auth/v3/api-docs`, `/auth/v3/api-docs/**` → `http://localhost:8091`
 - `/auth/**` → `http://localhost:8091`
-- `/clientes/**`, `/vehiculos/**`, `/ordenes/**` → `http://localhost:8081`
-- Documentación: ver la sección **Documentación (Swagger)** más abajo.
+- `/taller/swagger-ui.html`, `/taller/swagger-ui/**`, `/taller/v3/api-docs`, `/taller/v3/api-docs/**` → `http://localhost:8081`
+- `/clientes/**`, `/vehiculos/**`, `/ordenes/**`, `/taller/**` → `http://localhost:8081`
+- Documentación agrupada del gateway: ver la sección **Documentación (Swagger)** más abajo.
+
+En local se usan los defaults `http://localhost:8091` y `http://localhost:8081`; Docker Compose los sobrescribe con `http://auth:8091` y `http://taller:8081`.
 
 ## Variables de entorno (ejecución local)
 
@@ -32,6 +62,8 @@ Ninguna contraseña ni secreto real se guarda en el repositorio: todo se lee de 
 | `JWT_SECRET` | Secreto para firmar/validar JWT. **El mismo valor en api-gateway y auth-usuarios-service**, con **mínimo 32 caracteres**. No se usa en taller-service. |
 | `AUTH_SERVICE_URL` | Opcional. URL base de auth-usuarios-service usada por el gateway. Default: `http://localhost:8091`. |
 | `TALLER_SERVICE_URL` | Opcional. URL base de taller-service usada por el gateway. Default: `http://localhost:8081`. |
+| `CORS_ORIGINS` | Opcional. Orígenes permitidos, separados por coma; se usa en los tres servicios. Default: `http://localhost:*,http://127.0.0.1:*`. |
+| `APP_PUBLIC_URL` | Opcional. URL pública que aparece en Swagger; se usa en auth y taller. Default: `http://localhost:9090`. |
 
 Ejemplo (PowerShell, sesión de desarrollo):
 
@@ -50,6 +82,9 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
 
 # Opcional en auth y taller, si PostgreSQL no está en localhost:5432:
 # $env:DB_URL = "jdbc:postgresql://localhost:5432/brem_automotriz"
+
+# Opcional en los tres servicios: CORS_ORIGINS (default http://localhost:*,http://127.0.0.1:*)
+# Opcional en auth y taller: APP_PUBLIC_URL (default http://localhost:9090)
 ```
 
 ## Orden para levantar el proyecto (ejecución local)
@@ -83,15 +118,61 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
    .\mvnw.cmd spring-boot:run
    ```
 
+## Pruebas
+
+Ejecutadas en Windows con PowerShell y Java 21.0.11 (verificado con `java -version`), desde la carpeta de cada módulo:
+
+```powershell
+cd Backend\auth-usuarios-service
+.\mvnw.cmd test
+cd ..\taller-service
+.\mvnw.cmd test
+cd ..\api-gateway
+.\mvnw.cmd test
+```
+
+Las tres ejecuciones terminaron con código de salida `0`. Los números se contaron de `target\surefire-reports\TEST-*.xml` al finalizar cada ejecución.
+
+Tipos de pruebas por servicio:
+
+- **auth-usuarios-service**: `AuthControllerTest` usa `@WebMvcTest` + MockMvc con `@MockitoBean`; `AuthServiceTest` usa `@ExtendWith(MockitoExtension.class)` con `@Mock`; `JwtServiceTest` y `BCryptHashVerificationTest` son pruebas unitarias JUnit sin contexto Spring.
+- **taller-service**: seis `*ControllerTest` usan `@WebMvcTest` + MockMvc con `@MockitoBean` e importan `SecurityConfig` y `GlobalExceptionHandler`; tres `*ServiceTest` usan `@ExtendWith(MockitoExtension.class)` con `@Mock`.
+- **api-gateway**: `ApiGatewayRoutingIntegrationTest` usa `@SpringBootTest(webEnvironment = RANDOM_PORT)`; `JwtAuthenticationFilterTest` y `CorsConfigTest` son pruebas unitarias JUnit sin contexto Spring.
+
+| Módulo | Clase | Tests | Fallos | Errores | Omitidos |
+| --- | --- | ---: | ---: | ---: | ---: |
+| auth-usuarios-service | `cl.brem.authusuarios.controller.AuthControllerTest` | 6 | 0 | 0 | 0 |
+| auth-usuarios-service | `cl.brem.authusuarios.security.BCryptHashVerificationTest` | 2 | 0 | 0 | 0 |
+| auth-usuarios-service | `cl.brem.authusuarios.service.AuthServiceTest` | 10 | 0 | 0 | 0 |
+| auth-usuarios-service | `cl.brem.authusuarios.service.JwtServiceTest` | 3 | 0 | 0 | 0 |
+| **auth-usuarios-service** | **Subtotal** | **21** | **0** | **0** | **0** |
+| taller-service | `cl.brem.taller.controller.ClienteControllerTest` | 9 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.controller.EvidenciaControllerTest` | 7 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.controller.HistorialControllerTest` | 4 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.controller.LineaControllerTest` | 9 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.controller.OrdenControllerTest` | 14 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.controller.VehiculoControllerTest` | 12 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.service.ClienteServiceTest` | 9 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.service.OrdenTrabajoServiceTest` | 36 | 0 | 0 | 0 |
+| taller-service | `cl.brem.taller.service.VehiculoServiceTest` | 13 | 0 | 0 | 0 |
+| **taller-service** | **Subtotal** | **113** | **0** | **0** | **0** |
+| api-gateway | `cl.brem.apigateway.ApiGatewayRoutingIntegrationTest` | 1 | 0 | 0 | 0 |
+| api-gateway | `cl.brem.apigateway.config.CorsConfigTest` | 1 | 0 | 0 | 0 |
+| api-gateway | `cl.brem.apigateway.filter.JwtAuthenticationFilterTest` | 14 | 0 | 0 | 0 |
+| **api-gateway** | **Subtotal** | **16** | **0** | **0** | **0** |
+| **TOTAL** | | **150** | **0** | **0** | **0** |
+
+No se usan Testcontainers: ninguna prueba levanta PostgreSQL.
+
 ## Despliegue en AWS (EC2)
 
-El backend corre en una instancia EC2 con Docker Compose. Se levantan cuatro contenedores: `brem-gateway`, `brem-auth`, `brem-taller` y `brem-db` (PostgreSQL 16).
+El backend corre en una instancia EC2 con Docker Compose. Se levantan cuatro contenedores: `brem-db` (PostgreSQL 16, servicio `db`), `brem-auth` (servicio `auth`), `brem-taller` (servicio `taller`) y `brem-gateway` (servicio `gateway`).
 
 ```text
 Internet → :9090 (API Gateway) → auth (8091) / taller (8081) → PostgreSQL (5432)
 ```
 
-Solo el puerto `9090` se expone a internet; `auth`, `taller` y la base de datos quedan dentro de la red de Docker.
+Solo el puerto `9090` se expone para la aplicación (el `22` se abre únicamente para administración por SSH); `auth`, `taller` y la base de datos quedan dentro de la red de Docker.
 
 ### Datos del despliegue
 
@@ -185,7 +266,9 @@ docker compose up -d --build
 
 ## Endpoints
 
-Todas las rutas están expuestas por el gateway en `http://localhost:9090`. `POST /auth/login` y la documentación Swagger son públicos; el resto exige `Authorization: Bearer {{token}}`. Los permisos por verbo usan los roles `ADMIN` y `JEFE`. Los errores de `auth-usuarios-service` y `taller-service` responden `{status, error, mensaje, timestamp}` (401/403/404/400/500); el 401 del gateway responde `{status, error, mensaje}`, sin `timestamp`.
+Todas las rutas listadas están expuestas por el gateway en `http://localhost:9090`. Son públicos `POST /auth/login`, el Swagger agrupado del gateway y la documentación de auth (`/auth/swagger-ui.html`, `/auth/v3/api-docs`); `/taller/v3/api-docs` también figura en `RUTAS_PUBLICAS` del filtro, pero `/taller/swagger-ui.html` **no**: a través del gateway requiere `Authorization: Bearer <token>`. El resto de rutas exige token.
+
+Los permisos se aplican por servicio: en `auth-usuarios-service`, todo `/auth/**` excepto `/login` exige authority `ADMIN`; en `taller-service`, los verbos de las tablas siguientes exigen `ADMIN` o `JEFE`. Los errores de `auth-usuarios-service` y `taller-service` responden `{status, error, mensaje, timestamp}` (401/403/404/400/409/500); el 401 del gateway responde `{status, error, mensaje}`, sin `timestamp`.
 
 ### Autenticación y usuarios
 
@@ -199,46 +282,46 @@ Todas las rutas están expuestas por el gateway en `http://localhost:9090`. `POS
 
 ### Clientes
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| `GET` | `/clientes` | Listado. |
-| `GET` | `/clientes/{id}` | Detalle. |
-| `POST` | `/clientes` | Alta. |
-| `PUT` | `/clientes/{id}` | Edición. |
+| Método | Ruta | Descripción | Acceso |
+| --- | --- | --- | --- |
+| `GET` | `/clientes` | Listado. | `ADMIN` o `JEFE` |
+| `GET` | `/clientes/{id}` | Detalle. | `ADMIN` o `JEFE` |
+| `POST` | `/clientes` | Alta. | `ADMIN` o `JEFE` |
+| `PUT` | `/clientes/{id}` | Edición. | `ADMIN` o `JEFE` |
 
 ### Vehículos
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| `GET` | `/vehiculos` | Listado. |
-| `GET` | `/vehiculos/{id}` | Detalle. |
-| `GET` | `/vehiculos/cliente/{clienteId}` | Vehículos de un cliente. |
-| `GET` | `/vehiculos/patente/{patente}` | Búsqueda por patente. |
-| `POST` | `/vehiculos` | Alta. |
-| `PUT` | `/vehiculos/{id}` | Edición. |
+| Método | Ruta | Descripción | Acceso |
+| --- | --- | --- | --- |
+| `GET` | `/vehiculos` | Listado. | `ADMIN` o `JEFE` |
+| `GET` | `/vehiculos/{id}` | Detalle. | `ADMIN` o `JEFE` |
+| `GET` | `/vehiculos/cliente/{clienteId}` | Vehículos de un cliente. | `ADMIN` o `JEFE` |
+| `GET` | `/vehiculos/patente/{patente}` | Búsqueda por patente. | `ADMIN` o `JEFE` |
+| `POST` | `/vehiculos` | Alta. | `ADMIN` o `JEFE` |
+| `PUT` | `/vehiculos/{id}` | Edición. | `ADMIN` o `JEFE` |
 
 ### Órdenes de trabajo
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| `GET` | `/ordenes` | Listado (tabla `ordenes_trabajo`). |
-| `GET` | `/ordenes/{id}` | Detalle. |
-| `GET` | `/ordenes/buscar?q=` | Búsqueda (vista `vista_ordenes`). |
-| `POST` | `/ordenes` | Alta; requiere `X-User-Id`. |
-| `PUT` | `/ordenes/{id}` | Edición. |
-| `PATCH` | `/ordenes/{id}/estado` | Cambio de estado. |
+| Método | Ruta | Descripción | Acceso |
+| --- | --- | --- | --- |
+| `GET` | `/ordenes` | Listado (tabla `ordenes_trabajo`). | `ADMIN` o `JEFE` |
+| `GET` | `/ordenes/{id}` | Detalle. | `ADMIN` o `JEFE` |
+| `GET` | `/ordenes/buscar?q=` | Búsqueda (vista `vista_ordenes`). | `ADMIN` o `JEFE` |
+| `POST` | `/ordenes` | Alta; requiere `X-User-Id`. | `ADMIN` o `JEFE` |
+| `PUT` | `/ordenes/{id}` | Edición. | `ADMIN` o `JEFE` |
+| `PATCH` | `/ordenes/{id}/estado` | Cambio de estado. | `ADMIN` o `JEFE` |
 
 ### Líneas, evidencias e historial
 
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| `GET` | `/ordenes/{ordenId}/lineas` | Listado de líneas. |
-| `POST` | `/ordenes/{ordenId}/lineas` | Alta de línea. |
-| `PUT` | `/ordenes/{ordenId}/lineas/{lineaId}` | Edición de línea. |
-| `DELETE` | `/ordenes/{ordenId}/lineas/{lineaId}` | Borrado de línea (único `DELETE`). |
-| `GET` | `/ordenes/{ordenId}/evidencias` | Listado de evidencias. |
-| `POST` | `/ordenes/{ordenId}/evidencias` | Alta de evidencia. |
-| `GET` | `/ordenes/{ordenId}/historial` | Historial de cambios de estado. |
+| Método | Ruta | Descripción | Acceso |
+| --- | --- | --- | --- |
+| `GET` | `/ordenes/{ordenId}/lineas` | Listado de líneas. | `ADMIN` o `JEFE` |
+| `POST` | `/ordenes/{ordenId}/lineas` | Alta de línea. | `ADMIN` o `JEFE` |
+| `PUT` | `/ordenes/{ordenId}/lineas/{lineaId}` | Edición de línea. | `ADMIN` o `JEFE` |
+| `DELETE` | `/ordenes/{ordenId}/lineas/{lineaId}` | Borrado de línea (único `DELETE`). | `ADMIN` o `JEFE` |
+| `GET` | `/ordenes/{ordenId}/evidencias` | Listado de evidencias. | `ADMIN` o `JEFE` |
+| `POST` | `/ordenes/{ordenId}/evidencias` | Alta de evidencia. | `ADMIN` o `JEFE` |
+| `GET` | `/ordenes/{ordenId}/historial` | Historial de cambios de estado. | `ADMIN` o `JEFE` |
 
 Notas de uso:
 
@@ -257,6 +340,8 @@ Notas de uso:
 | Swagger de taller | `http://localhost:9090/taller/swagger-ui.html` |
 | OpenAPI de taller | `http://localhost:9090/taller/v3/api-docs` |
 
+Según `JwtAuthenticationFilter.RUTAS_PUBLICAS`, `/taller/swagger-ui.html` no es pública a través del gateway: envía `Authorization: Bearer <token>` o usa el puerto directo `http://localhost:8081/taller/swagger-ui.html`, donde Swagger está permitido por el `SecurityConfig` del servicio.
+
 También disponibles en los puertos directos: `http://localhost:8091/auth/swagger-ui.html` y `http://localhost:8081/taller/swagger-ui.html`.
 
 ## Usuarios de prueba y datos de ejemplo
@@ -268,6 +353,8 @@ Según el seed de `database/postgres/brem_automotriz.sql`:
 | `admin1@brem.cl` | `admin123` | `ADMIN` |
 | `admin2@brem.cl` | `admin123` | `ADMIN` |
 | `jefe@brem.cl` | `jefe123` | `JEFE` |
+
+Estas credenciales son solo de prueba para la evaluación; deben cambiarse antes de cualquier uso real.
 
 Login de ejemplo:
 
@@ -285,5 +372,6 @@ Datos de ejemplo: clientes `1` y `2`; vehículos `ABCD12`, `WXYZ34` y `BCDF56`; 
 ## Notas
 
 - Las órdenes de trabajo se anulan, no se borran: `brem_taller_svc` no tiene `DELETE` sobre `clientes`, `vehiculos` ni `ordenes_trabajo`.
-- No se usan configuraciones de Testcontainers: los tests no levantan PostgreSQL. En auth y taller, los controllers se prueban con `@WebMvcTest` y MockMvc (mocks con `@MockitoBean`) y los servicios con `@ExtendWith(MockitoExtension.class)` y `@Mock`; el gateway añade un test de rutas con `@SpringBootTest(webEnvironment = RANDOM_PORT)`.
+- Los tipos y resultados de las pruebas están en la sección **Pruebas**.
 - El script PostgreSQL crea solo los roles `brem_usuarios_svc` y `brem_taller_svc`: `taller-service` se conecta con `brem_taller_svc`.
+- En el repositorio queda un script histórico `database/mysql/brem_automotriz.sql`, pero ningún módulo usa MySQL: los tres `pom.xml` y la configuración usan PostgreSQL (`org.postgresql.Driver`).

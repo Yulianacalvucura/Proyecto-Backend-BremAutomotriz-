@@ -2,7 +2,7 @@
 
 Backend de Brem Automotriz con **Spring Boot 4.2.0 / Java 21** y una única base de datos **PostgreSQL 16 compartida** (`brem_automotriz`).
 
-> Hay dos formas de ejecutar el proyecto: **local** (MySQL + Maven) y **despliegue en AWS** (Docker Compose + PostgreSQL). Ver la sección "Despliegue en AWS (EC2)".
+> Hay dos formas de ejecutar el proyecto: **local** (PostgreSQL + Maven) y **despliegue en AWS** (Docker Compose + PostgreSQL). Ver la sección "Despliegue en AWS (EC2)". Las pruebas automáticas están en la sección "Pruebas".
 
 El esquema lo crea exclusivamente el script SQL ejecutado a mano: no hay Flyway, Liquibase ni DDL de Hibernate (`spring.jpa.hibernate.ddl-auto=none`).
 
@@ -28,7 +28,7 @@ Ninguna contraseña ni secreto real se guarda en el repositorio: todo se lee de 
 | --- | --- |
 | `DB_URL` | Opcional. URL JDBC de PostgreSQL. Default: `jdbc:postgresql://localhost:5432/brem_automotriz`. |
 | `DB_USER` | Usuario de PostgreSQL. Distinto por servicio: `brem_usuarios_svc` en auth, `brem_taller_svc` en taller. |
-| `DB_PASSWORD` | Contraseña de ese usuario. Distinta por servicio: la que definiste al crear cada rol con `db/postgres/usuarios_servicio.sql`. No aplica al gateway (no usa BD). |
+| `DB_PASSWORD` | Contraseña de ese usuario. Distinta por servicio: la que definiste al crear cada rol con `database/postgres/usuarios_servicio.sql`. No aplica al gateway (no usa BD). |
 | `JWT_SECRET` | Secreto para firmar/validar JWT. **El mismo valor en api-gateway y auth-usuarios-service**, con **mínimo 32 caracteres**. No se usa en taller-service. |
 | `AUTH_SERVICE_URL` | Opcional. URL base de auth-usuarios-service usada por el gateway. Default: `http://localhost:8091`. |
 | `TALLER_SERVICE_URL` | Opcional. URL base de taller-service usada por el gateway. Default: `http://localhost:8081`. |
@@ -54,6 +54,8 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
 
 ## Orden para levantar el proyecto (ejecución local)
 
+Requisitos: Java 21 y PostgreSQL 16 instalados. Los scripts SQL están en la carpeta `database/postgres/`.
+
 1. Crear la base de datos con un usuario administrador (`postgres`):
 
    ```powershell
@@ -71,7 +73,7 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
 3. Ejecutar el script de los roles (mínimo privilegio):
 
    ```powershell
-   psql -U postgres -d brem_automotriz -v usuarios_pass="<contraseña>" -v taller_pass="<contraseña>" -f db\postgres\usuarios_servicio.sql
+   psql -U postgres -d brem_automotriz -v usuarios_pass="<contraseña>" -v taller_pass="<contraseña>" -f database\postgres\usuarios_servicio.sql
    ```
 
    Crea solo `brem_usuarios_svc` (SELECT/INSERT/UPDATE sobre `usuarios`) y `brem_taller_svc` (permisos sobre las tablas de taller y la vista). Guarda esas contraseñas para usarlas como `DB_PASSWORD` en cada servicio.
@@ -82,6 +84,31 @@ $env:JWT_SECRET = "<secreto de al menos 32 caracteres>"
    # ejecutado dentro de cada carpeta Backend/<módulo>
    .\mvnw.cmd spring-boot:run
    ```
+
+## Pruebas
+
+Los tres servicios tienen pruebas unitarias. No usan Testcontainers, por lo que no levantan PostgreSQL ni necesitan variables de entorno.
+
+- **Controllers** (auth y taller): `@WebMvcTest` con MockMvc y mocks con `@MockitoBean`.
+- **Servicios** (auth y taller): `@ExtendWith(MockitoExtension.class)` con `@Mock`.
+- **Gateway**: pruebas del filtro JWT y de CORS, y un test de rutas con `@SpringBootTest(webEnvironment = RANDOM_PORT)`.
+
+Para ejecutarlas, dentro de cada carpeta `Backend/<módulo>` (con Java 21):
+
+```powershell
+.\mvnw.cmd test
+```
+
+Resultado de la última ejecución (Java 21): las tres corridas terminaron con código de salida 0, sin fallos, errores ni omitidos.
+
+| Módulo | Tests |
+| --- | ---: |
+| `auth-usuarios-service` | 21 |
+| `taller-service` | 113 |
+| `api-gateway` | 16 |
+| **Total** | **150** |
+
+La salida puede incluir avisos de Mockito y de la JVM sobre carga dinámica de agentes Java. Son informativos y no afectan el resultado.
 
 ## Despliegue en AWS (EC2)
 
@@ -285,5 +312,4 @@ Datos de ejemplo: clientes `1` y `2`; vehículos `ABCD12`, `WXYZ34` y `BCDF56`; 
 ## Notas
 
 - Las órdenes de trabajo se anulan, no se borran: `brem_taller_svc` no tiene `DELETE` sobre `clientes`, `vehiculos` ni `ordenes_trabajo`.
-- No se usan configuraciones de Testcontainers: los tests no levantan PostgreSQL. En auth y taller, los controllers se prueban con `@WebMvcTest` y MockMvc (mocks con `@MockitoBean`) y los servicios con `@ExtendWith(MockitoExtension.class)` y `@Mock`; el gateway añade un test de rutas con `@SpringBootTest(webEnvironment = RANDOM_PORT)`.
 - El script PostgreSQL crea solo los roles `brem_usuarios_svc` y `brem_taller_svc`: `taller-service` se conecta con `brem_taller_svc`.
